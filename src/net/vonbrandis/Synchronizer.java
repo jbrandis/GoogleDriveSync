@@ -76,12 +76,27 @@ public class Synchronizer {
                 return;
             }
 
+            //setup authorization flow
             GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
                     httpTransport, jsonFactory, clientID, clientSecret, Arrays.asList(DriveScopes.DRIVE))
                     .setAccessType("offline")
                     .setApprovalPrompt("auto")
                     .setDataStoreFactory(dataStoreFactory)
                     .build();
+
+            //run authorization flow
+            Credential credential = new AuthorizationCodeInstalledApp(
+                    flow,
+                    new LocalServerReceiver.Builder()
+                            .setHost("shell.vonbrandis.net")
+                            .setPort(8080)
+                            .build()
+            ).authorize(accountID);
+
+            //Create a new authorized API client
+            Drive service = new Drive.Builder(httpTransport, jsonFactory, credential).build();
+
+            //start sync
 
             if (args.length < 1 || args.length > 2) {
                 System.out.println("Usage: java -jar GoogleDriveSync.jar <sourcefolder> [destinationname]");
@@ -107,13 +122,8 @@ public class Synchronizer {
 
             System.out.println(String.format("Synchronizing folder %s to %s", sourceFolder, destName));
 
-            Credential credential = new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize(accountID);
-
-            //Create a new authorized API client
-            Drive service = new Drive.Builder(httpTransport, jsonFactory, credential).build();
-
-            //new Synchronizer(service, "/Volumes/bilder", "Bildearkiv").sync();
             new Synchronizer(service, sourcePath, destName).sync();
+
         } catch (Exception e) {
             e.printStackTrace();
         }
