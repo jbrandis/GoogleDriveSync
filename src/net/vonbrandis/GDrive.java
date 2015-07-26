@@ -25,8 +25,6 @@ class GDrive {
     }
 
     public File fetchFolderByID(String parentFolderID, String name) throws IOException {
-        logger.debug("Fetching drive folder %s", name);
-
         Drive.Files.List request = service.files().list();
         if (parentFolderID != null) {
             request.setQ(String.format("title='%s' and '%s' in parents and trashed=False", name, parentFolderID));
@@ -48,7 +46,6 @@ class GDrive {
         if (dryrun) {
             logger.debug("DRY RUN: Deleting file %s", driveFile.getTitle());
         } else {
-            logger.debug("Deleting file %s", driveFile.getTitle());
             service.files().delete(driveFile.getId());
         }
     }
@@ -57,13 +54,10 @@ class GDrive {
         Drive.Files.List request = service.files().list().setMaxResults(1000).setQ(String.format("'%s' in parents and trashed=False", parentFolder.getId()));
         FileList result;
         List<File> list = new ArrayList<>();
-        int rc = 1;
         do {
-            logger.debug("Iterating drive folder %s [%d]", parentFolder.getTitle(), rc);
             result = request.execute();
             list.addAll(result.getItems());
             request.setPageToken(result.getNextPageToken());
-            rc++;
         } while (result.getNextPageToken() != null && result.getNextPageToken().length() > 0);
         return list;
     }
@@ -73,7 +67,6 @@ class GDrive {
             logger.debug("DRY RUN: Would create folder %s/%s)", parentFolder.getTitle(), name);
             return null;
         } else {
-            logger.debug("Creating folder %s/%s)", parentFolder.getTitle(), name);
             File newFile = new File();
             newFile.setTitle(name);
             newFile.setMimeType(APPLICATION_VND_GOOGLE_APPS_FOLDER);
@@ -94,12 +87,7 @@ class GDrive {
             newFile.setParents(Collections.singletonList(new ParentReference().setId(parentFolder.getId())));
             java.io.File fileContent = new java.io.File(localFile.getAbsolutePath());
             FileContent mediaContent = new FileContent(mimeType, fileContent);
-            logger.debug("Uploading file %s as %s/%s (%d bytes)", localFile, parentFolder.getTitle(), driveFileName, localFile.length());
-            long start = System.currentTimeMillis();
-            newFile = service.files().insert(newFile, mediaContent).execute();
-            long timeUsed = System.currentTimeMillis() - start;
-            logger.debug("Uploaded %d bytes in %.2f seconds", localFile.length(), timeUsed/1000.0);
-            return newFile;
+            return service.files().insert(newFile, mediaContent).execute();
         }
     }
 
@@ -110,12 +98,7 @@ class GDrive {
         } else {
             java.io.File fileContent = new java.io.File(localFile.getAbsolutePath());
             FileContent mediaContent = new FileContent(driveFile.getMimeType(), fileContent);
-            logger.debug("Updating file %s (%d bytes)", driveFile.getTitle(), localFile.length());
-            long start = System.currentTimeMillis();
-            driveFile = service.files().update(driveFile.getId(), driveFile, mediaContent).execute();
-            long timeUsed = System.currentTimeMillis() - start;
-            logger.debug("Uploaded %d bytes in %.2f seconds", localFile.length(), timeUsed/1000.0);
-            return driveFile;
+            return service.files().update(driveFile.getId(), driveFile, mediaContent).execute();
         }
     }
 }

@@ -94,7 +94,9 @@ public class Synchronizer {
             ).authorize(accountID);
 
             //Create a new authorized API client
-            Drive service = new Drive.Builder(httpTransport, jsonFactory, credential).build();
+            Drive service = new Drive.Builder(httpTransport, jsonFactory, credential)
+                    .setApplicationName("GoogleDriveSync")
+                    .build();
 
             //start sync
 
@@ -133,8 +135,15 @@ public class Synchronizer {
         logger.debug("Sync");
 
         //fetch root folder
-        File driveFolder = service.fetchFolderByID(null, this.driveRootFolder);
-        logger.debug("Fetched %s", driveFolder);
+        String parentFolderID = null;
+        File driveFolder = null;
+        for (String elem : this.driveRootFolder.split("/")) {
+            logger.debug("<<< Fetching drive folder %s", elem);
+            driveFolder = service.fetchFolderByID(parentFolderID, elem);
+            parentFolderID = driveFolder.getId();
+        }
+        assert driveFolder != null;
+        logger.debug("Fetched %s", driveFolder.getTitle());
 
         java.io.File localFolder = new java.io.File(this.localRootFolder);
         syncFolderWithDrive(localFolder, driveFolder);
