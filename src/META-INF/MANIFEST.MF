@@ -1,3 +1,2 @@
 Manifest-Version: 1.0
-Main-Class: net.vonbrandis.Synchronizer
-
+Main-Class: net.vonbrandis.gdrivesync.Synchronizer
