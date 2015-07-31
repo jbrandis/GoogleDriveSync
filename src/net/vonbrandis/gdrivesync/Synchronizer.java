@@ -29,11 +29,11 @@ public class Synchronizer {
     private GDrive service;
     private String localRootFolder;
     private String driveRootFolder;
-    private Console console;
+    private Progress progress;
 
-    public Synchronizer(Console console, Drive service, String localFolder, String driveFolder) {
-        this.console = console;
-        this.service = new GDrive(service, console, DRY_RUN);
+    public Synchronizer(Progress progress, Drive service, String localFolder, String driveFolder) {
+        this.progress = progress;
+        this.service = new GDrive(service, progress, DRY_RUN);
         this.localRootFolder = localFolder;
         this.driveRootFolder = driveFolder;
     }
@@ -95,7 +95,7 @@ public class Synchronizer {
 
     public static void main(String[] args) {
         try {
-            Console console = new Console();
+            Progress progress = new Progress();
 
             //determine which files to use
             java.io.File home = new java.io.File(System.getProperty("user.home"));
@@ -114,16 +114,16 @@ public class Synchronizer {
                         destName = g.getOptarg();
                         break;
                     case 'd':
-                        console.setDebug(true);
+                        progress.setDebug(true);
                         break;
                     case 'f':
-                        console.setFolderSummary(true);
+                        progress.setFolderSummary(true);
                         break;
                     case 'r':
-                        console.setTransactions(true);
+                        progress.setTransactions(true);
                         break;
                     case 'o':
-                        console.setTotalSummary(false);
+                        progress.setTotalSummary(false);
                         break;
                     default:
                         throw new IllegalArgumentException("getopt() returned " + c + "\n");
@@ -131,10 +131,10 @@ public class Synchronizer {
             }
 
             java.io.File propFile = new java.io.File(home, PROPERTIES_FILE);
-            console.debug("Using properties file " + propFile);
+            progress.debug("Using properties file " + propFile);
 
             java.io.File dataStoreLocation = new java.io.File("/tmp/gsync");
-            console.debug("Using datastore " + dataStoreLocation);
+            progress.debug("Using datastore " + dataStoreLocation);
 
             if (sourcePath == null)
                 throw new IllegalArgumentException("Source not specified");
@@ -148,18 +148,18 @@ public class Synchronizer {
 
             //start sync
 
-            console.log("Synchronizing folder %s to %s", sourceFolder, destName);
+            progress.log("Synchronizing folder %s to %s", sourceFolder, destName);
 
             int retries = 5;
             for (int i = 0; i < retries; i++) {
                 try {
-                    new Synchronizer(console, service, sourcePath, destName).sync();
+                    new Synchronizer(progress, service, sourcePath, destName).sync();
                     return;
                 } catch (IOException e) {
                     e.printStackTrace();
-                    console.newline();
-                    console.log(String.format("!!!!! Retrying (attempt %d of %d) !!!!!", i + 2, retries));
-                    console.newline();
+                    progress.newline();
+                    progress.log(String.format("!!!!! Retrying (attempt %d of %d) !!!!!", i + 2, retries));
+                    progress.newline();
                 }
             }
 
@@ -180,30 +180,30 @@ public class Synchronizer {
     }
 
     public void sync() throws IOException {
-        console.debug("Starting sync");
+        progress.debug("Starting sync");
 
         //fetch root folder
         String parentFolderID = null;
         File driveFolder = null;
         for (String elem : this.driveRootFolder.split("/")) {
-            console.debug("<<< Fetching drive folder %s", elem);
+            progress.debug("<<< Fetching drive folder %s", elem);
             driveFolder = service.fetchFolderByID(parentFolderID, elem);
             parentFolderID = driveFolder.getId();
         }
         assert driveFolder != null;
-        console.debug("Fetched %s", driveFolder.getTitle());
+        progress.debug("Fetched %s", driveFolder.getTitle());
 
         java.io.File localFolder = new java.io.File(this.localRootFolder);
         syncFolderWithDrive(localFolder, driveFolder);
     }
 
     private void syncFolderWithDrive(java.io.File localFolder, File driveFolder) throws IOException {
-        console.debug("Syncing folder %s with %s", localFolder, driveFolder.getTitle());
+        progress.debug("Syncing folder %s with %s", localFolder, driveFolder.getTitle());
 
         if (!localFolder.exists() || !localFolder.isDirectory()) {
             throw new RuntimeException("Cannot sync with folder, does not exist: " + localFolder);
         }
 
-        new FolderSynchronizer(service, console, localFolder, driveFolder).sync();
+        new FolderSynchronizer(service, progress, localFolder, driveFolder).sync();
     }
 }

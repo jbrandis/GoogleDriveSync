@@ -15,12 +15,12 @@ public class GDrive {
     public static final String APPLICATION_VND_GOOGLE_APPS_FOLDER = "application/vnd.google-apps.folder";
     public static final String APPLICATION_OCTET_STREAM = "application/octet-stream";
     private Drive service;
-    private Console console;
+    private Progress progress;
     private boolean dryrun;
 
-    public GDrive(Drive service, Console console, boolean dryrun) {
+    public GDrive(Drive service, Progress progress, boolean dryrun) {
         this.service = service;
-        this.console = console;
+        this.progress = progress;
         this.dryrun = dryrun;
     }
 
@@ -44,7 +44,7 @@ public class GDrive {
 
     public void deleteDriveFile(File driveFile) throws IOException {
         if (dryrun) {
-            console.debug("DRY RUN: Deleting file %s", driveFile.getTitle());
+            progress.debug("DRY RUN: Deleting file %s", driveFile.getTitle());
         } else {
             service.files().delete(driveFile.getId());
         }
@@ -64,7 +64,7 @@ public class GDrive {
 
     public File createDriveFolder(File parentFolder, String name) throws IOException {
         if (dryrun) {
-            console.debug("DRY RUN: Would create folder %s/%s)", parentFolder.getTitle(), name);
+            progress.debug("DRY RUN: Would create folder %s/%s)", parentFolder.getTitle(), name);
             return null;
         } else {
             File newFile = new File();
@@ -77,7 +77,7 @@ public class GDrive {
 
     public File createDriveFile(File parentFolder, String driveFileName, java.io.File localFile) throws IOException {
         if (dryrun) {
-            console.debug("DRY RUN: Would create file %s as %s/%s (%d bytes)", localFile, parentFolder.getTitle(), driveFileName, localFile.length());
+            progress.debug("DRY RUN: Would create file %s as %s/%s (%d bytes)", localFile, parentFolder.getTitle(), driveFileName, localFile.length());
             return null;
         } else {
             File newFile = new File();
@@ -93,7 +93,7 @@ public class GDrive {
 
     public File updateDriveFile(File driveFile, java.io.File localFile) throws IOException {
         if (dryrun) {
-            console.debug("DRY RUN: Would update file %s (%d bytes)", localFile, localFile.length());
+            progress.debug("DRY RUN: Would update file %s (%d bytes)", localFile, localFile.length());
             return driveFile;
         } else {
             java.io.File fileContent = new java.io.File(localFile.getAbsolutePath());

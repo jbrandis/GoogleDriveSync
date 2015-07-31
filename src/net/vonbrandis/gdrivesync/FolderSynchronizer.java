@@ -9,7 +9,7 @@ import static java.lang.String.format;
 
 public class FolderSynchronizer {
     private GDrive service;
-    private Console console;
+    private Progress progress;
     private java.io.File localFolder;
     private File driveFolder;
 
@@ -21,23 +21,23 @@ public class FolderSynchronizer {
     private Map<String, File> driveFileMap = new HashMap<>();
     private Map<String, java.io.File> localFileMap = new HashMap<>();
 
-    public FolderSynchronizer(GDrive service, Console console, java.io.File localFolder, File driveFolder) {
+    public FolderSynchronizer(GDrive service, Progress progress, java.io.File localFolder, File driveFolder) {
         this.service = service;
-        this.console = console;
+        this.progress = progress;
         this.localFolder = localFolder;
         this.driveFolder = driveFolder;
     }
 
     public void sync() throws IOException {
         //first, create a map of remote names to gdrive file objects
-        console.debug("<<< Iterating drive folder %s", driveFolder.getTitle());
+        progress.debug("<<< Iterating drive folder %s", driveFolder.getTitle());
         service.iterateDriveFolder(driveFolder).forEach(f -> driveFileMap.put(f.getTitle(), f));
         //then iterate local files, and synchronize them
         iterateLocalFolder(localFolder).forEach(this::sync);
         //finally, look for remote files that are locally removed
         driveFileMap.keySet().stream().filter(name -> !localFileMap.containsKey(name)).forEach(locallyRemoved::add);
         //summary
-        console.folderSummary("Folder %s:\n %5d insync, %5d missing - %5d outdated - %3d locally removed - %3d subdirs"
+        progress.folderSummary("Folder %s:\n %5d insync, %5d missing - %5d outdated - %3d locally removed - %3d subdirs"
                 , this.localFolder, inSyncFiles.size(), missing.size(), outdated.size(), locallyRemoved.size(), subfolders.size());
 
         //upload missing files
@@ -53,7 +53,7 @@ public class FolderSynchronizer {
     private void sync(java.io.File localFile) {
         //skip hidden files
         if (localFile.getName().startsWith(".")) {
-            console.debug("Skipping %s", localFile);
+            progress.debug("Skipping %s", localFile);
             return;
         }
         localFileMap.put(localFile.getName(), localFile);
@@ -86,14 +86,14 @@ public class FolderSynchronizer {
     private void syncSubfolders() throws IOException {
         for (java.io.File dir : subfolders) {
             File driveFolder = getDriveFile(dir.getName());
-            new FolderSynchronizer(service, console, dir, driveFolder).sync();
+            new FolderSynchronizer(service, progress, dir, driveFolder).sync();
         }
     }
 
     private void handleLocallyRemovedFiles() throws IOException {
         for (String name : locallyRemoved) {
             File driveFile = getDriveFile(name);
-            console.transaction("!!! Deleting file %s", driveFile.getTitle());
+            progress.deleteFile(driveFile.getTitle());
             service.deleteDriveFile(driveFile);
         }
     }
@@ -102,10 +102,10 @@ public class FolderSynchronizer {
         for (java.io.File f : outdated) {
             File driveFile = getDriveFile(f.getName());
             long start = System.currentTimeMillis();
-            console.transaction(">>> Updating file %s (%d bytes, %d bytes remote)", driveFile.getTitle(), f.length(), driveFile.getFileSize());
+            progress.updateFile(driveFile, f);
             service.updateDriveFile(driveFile, f);
             long timeUsed = System.currentTimeMillis() - start;
-            console.transaction(">>> Uploaded %d bytes in %.2f seconds", f.length(), timeUsed / 1000.0);
+            progress.debug(">>> Uploaded %d bytes in %.2f seconds", f.length(), timeUsed / 1000.0);
         }
     }
 
@@ -113,14 +113,14 @@ public class FolderSynchronizer {
         for (java.io.File f : missing) {
             File remoteFile;
             if (f.isDirectory()) {
-                console.transaction(">>> Creating folder %s/%s)", driveFolder.getTitle(), f.getName());
+                progress.createDirectory(driveFolder.getTitle() + "/" + f.getName());
                 remoteFile = service.createDriveFolder(this.driveFolder, f.getName());
             } else {
-                console.transaction(">>> Uploading file %s as %s/%s (%d bytes)", f.getName(), driveFolder.getTitle(), f.getName(), f.length());
+                progress.createFile(f, driveFolder);
                 long start = System.currentTimeMillis();
                 remoteFile = service.createDriveFile(this.driveFolder, f.getName(), f);
                 long timeUsed = System.currentTimeMillis() - start;
-                console.transaction(">>> Uploaded %d bytes in %.2f seconds", f.length(), timeUsed / 1000.0);
+                progress.debug(">>> Uploaded %d bytes in %.2f seconds", f.length(), timeUsed / 1000.0);
             }
             if (remoteFile != null) driveFileMap.put(f.getName(), remoteFile);
         }
