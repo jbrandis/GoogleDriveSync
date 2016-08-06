@@ -1,6 +1,9 @@
 package net.vonbrandis.gdrivesync;
 
 import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.auth.oauth2.CredentialRefreshListener;
+import com.google.api.client.auth.oauth2.TokenErrorResponse;
+import com.google.api.client.auth.oauth2.TokenResponse;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
@@ -18,7 +21,7 @@ import gnu.getopt.Getopt;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Properties;
 
 public class Synchronizer {
@@ -38,42 +41,54 @@ public class Synchronizer {
         this.driveRootFolder = driveFolder;
     }
 
+    private static String assertIsSet(String str, String name) {
+        if (str == null) {
+            throw new IllegalArgumentException("Missing required property: " + name);
+        }
+        return str;
+    }
+
     private static Drive setupGoogleDrive(java.io.File dataStoreLocation, Properties props) throws IOException {
         HttpTransport httpTransport = new NetHttpTransport();
         JsonFactory jsonFactory = new JacksonFactory();
 
         DataStoreFactory dataStoreFactory = new FileDataStoreFactory(dataStoreLocation);
 
-        String clientID = props.getProperty("clientID");
-        String clientSecret = props.getProperty("clientSecret");
-        String accountID = props.getProperty("accountID");
-
-        if (accountID == null) {
-            throw new IllegalArgumentException("Missing required property: accountID");
-        }
-        if (clientID == null) {
-            throw new IllegalArgumentException("Missing required property: clientID");
-        }
-        if (clientSecret == null) {
-            throw new IllegalArgumentException("Missing required property: clientSecret");
-        }
+        String clientID = assertIsSet(props.getProperty("clientID"), "clientID");
+        String clientSecret = assertIsSet(props.getProperty("clientSecret"), "clientSecret");
+        String accountID = assertIsSet(props.getProperty("accountID"), "accountID");
+        String serverHost = assertIsSet(props.getProperty("serverHost"), "serverHost");
+        int serverPort = Integer.parseInt(assertIsSet(props.getProperty("serverPort"), "serverPort"));
 
         //setup authorization flow
+        CredentialRefreshListener refreshListener = new CredentialRefreshListener() {
+            @Override
+            public void onTokenResponse(Credential credential, TokenResponse tokenResponse) throws IOException {
+                System.out.println("Access token refreshed");
+            }
+
+            @Override
+            public void onTokenErrorResponse(Credential credential, TokenErrorResponse tokenErrorResponse) throws IOException {
+            }
+        };
+
+        //create code flow
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow
-                .Builder(httpTransport, jsonFactory, clientID, clientSecret, Arrays.asList(DriveScopes.DRIVE))
+                .Builder(httpTransport, jsonFactory, clientID, clientSecret, Collections.singletonList(DriveScopes.DRIVE))
                 .setAccessType("offline")
-                .setApprovalPrompt("auto")
+                .setApprovalPrompt("force")
                 .setDataStoreFactory(dataStoreFactory)
+                .addRefreshListener(refreshListener)
+                .build();
+
+        //create verificationCodeReceiver
+        LocalServerReceiver receiver = new LocalServerReceiver.Builder()
+                .setHost(serverHost)
+                .setPort(serverPort)
                 .build();
 
         //run authorization flow
-        Credential credential = new AuthorizationCodeInstalledApp(
-                flow,
-                new LocalServerReceiver.Builder()
-                        .setHost("shell.vonbrandis.net")
-                        .setPort(8080)
-                        .build()
-        ).authorize(accountID);
+        Credential credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize(accountID);
 
         //Create a new authorized API client
         return new Drive.Builder(httpTransport, jsonFactory, credential)
