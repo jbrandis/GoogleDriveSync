@@ -210,6 +210,7 @@ public class Synchronizer {
 
         java.io.File localFolder = new java.io.File(this.localRootFolder);
         syncFolderWithDrive(localFolder, driveFolder);
+        progress.totalSummary();
     }
 
     private void syncFolderWithDrive(java.io.File localFolder, File driveFolder) throws IOException {

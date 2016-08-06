@@ -104,8 +104,8 @@ public class FolderSynchronizer {
             long start = System.currentTimeMillis();
             progress.updateFile(driveFile, f);
             service.updateDriveFile(driveFile, f);
-            long timeUsed = System.currentTimeMillis() - start;
-            progress.debug(">>> Uploaded %d bytes in %.2f seconds", f.length(), timeUsed / 1000.0);
+            long elapsed = System.currentTimeMillis() - start;
+            progress.fileUpdated(driveFile, f, elapsed);
         }
     }
 
@@ -119,8 +119,8 @@ public class FolderSynchronizer {
                 progress.createFile(f, driveFolder);
                 long start = System.currentTimeMillis();
                 remoteFile = service.createDriveFile(this.driveFolder, f.getName(), f);
-                long timeUsed = System.currentTimeMillis() - start;
-                progress.debug(">>> Uploaded %d bytes in %.2f seconds", f.length(), timeUsed / 1000.0);
+                long elapsed = System.currentTimeMillis() - start;
+                progress.fileCreated(f, driveFolder, elapsed);
             }
             if (remoteFile != null) driveFileMap.put(f.getName(), remoteFile);
         }
