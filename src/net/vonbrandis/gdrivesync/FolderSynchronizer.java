@@ -85,6 +85,9 @@ public class FolderSynchronizer {
 
     private void syncSubfolders() throws IOException {
         for (java.io.File dir : subfolders) {
+            if (progress.isCancelled()) {
+                return;
+            }
             File driveFolder = getDriveFile(dir.getName());
             new FolderSynchronizer(service, progress, dir, driveFolder).sync();
         }
@@ -92,6 +95,9 @@ public class FolderSynchronizer {
 
     private void handleLocallyRemovedFiles() throws IOException {
         for (String name : locallyRemoved) {
+            if (progress.isCancelled()) {
+                return;
+            }
             File driveFile = getDriveFile(name);
             progress.deleteFile(driveFile.getTitle());
             service.deleteDriveFile(driveFile);
@@ -100,6 +106,9 @@ public class FolderSynchronizer {
 
     private void handleOutdatedFiles() throws IOException {
         for (java.io.File f : outdated) {
+            if (progress.isCancelled()) {
+                return;
+            }
             File driveFile = getDriveFile(f.getName());
             long start = System.currentTimeMillis();
             progress.updateFile(driveFile, f);
@@ -111,6 +120,10 @@ public class FolderSynchronizer {
 
     private void handleMissingFiles() throws IOException {
         for (java.io.File f : missing) {
+            if (progress.isCancelled()) {
+                return;
+            }
+
             File remoteFile;
             if (f.isDirectory()) {
                 progress.createDirectory(driveFolder.getTitle() + "/" + f.getName());

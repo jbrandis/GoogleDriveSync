@@ -46,7 +46,7 @@ public class GDrive {
         if (dryrun) {
             progress.debug("DRY RUN: Deleting file %s", driveFile.getTitle());
         } else {
-            service.files().delete(driveFile.getId());
+            service.files().delete(driveFile.getId()).execute();
         }
     }
 

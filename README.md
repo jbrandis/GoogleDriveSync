@@ -9,6 +9,7 @@ State: BETA quality, use at own risk!
 
 Before use:
 Specify $HOME/.GoogleDriveProperties:
+
 accountID = youraccount@gmail.com
-clientID = clientID
-clientSecret = clientSecret
+serverHost = public hostname to this server
+serverPort = port to bind authentication verification web server to

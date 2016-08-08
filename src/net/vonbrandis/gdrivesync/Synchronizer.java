@@ -26,9 +26,11 @@ import java.util.Properties;
 
 public class Synchronizer {
 
+    public static final String APPLICATION_NAME = "GoogleDriveSync";
     private static final boolean DRY_RUN = false;
     private static final String PROPERTIES_FILE = ".GoogleDriveSync";
-
+    private static final String CLIENT_ID = "848763972134-u0pa3p1fkrnou912hvgq7kd4d4o7l9pt.apps.googleusercontent.com";
+    private static final String CLIENT_SECRET = "gzW9orU9A0f88tdwMIcJBkuY";
     private GDrive service;
     private String localRootFolder;
     private String driveRootFolder;
@@ -54,8 +56,6 @@ public class Synchronizer {
 
         DataStoreFactory dataStoreFactory = new FileDataStoreFactory(dataStoreLocation);
 
-        String clientID = assertIsSet(props.getProperty("clientID"), "clientID");
-        String clientSecret = assertIsSet(props.getProperty("clientSecret"), "clientSecret");
         String accountID = assertIsSet(props.getProperty("accountID"), "accountID");
         String serverHost = assertIsSet(props.getProperty("serverHost"), "serverHost");
         int serverPort = Integer.parseInt(assertIsSet(props.getProperty("serverPort"), "serverPort"));
@@ -74,7 +74,7 @@ public class Synchronizer {
 
         //create code flow
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow
-                .Builder(httpTransport, jsonFactory, clientID, clientSecret, Collections.singletonList(DriveScopes.DRIVE))
+                .Builder(httpTransport, jsonFactory, CLIENT_ID, CLIENT_SECRET, Collections.singletonList(DriveScopes.DRIVE))
                 .setAccessType("offline")
                 .setApprovalPrompt("force")
                 .setDataStoreFactory(dataStoreFactory)
@@ -92,7 +92,7 @@ public class Synchronizer {
 
         //Create a new authorized API client
         return new Drive.Builder(httpTransport, jsonFactory, credential)
-                .setApplicationName("GoogleDriveSync")
+                .setApplicationName(APPLICATION_NAME)
                 .build();
     }
 
@@ -111,6 +111,7 @@ public class Synchronizer {
     public static void main(String[] args) {
         try {
             Progress progress = new Progress();
+            Runtime.getRuntime().addShutdownHook(new Thread(progress::cancel));
 
             //determine which files to use
             java.io.File home = new java.io.File(System.getProperty("user.home"));
@@ -164,24 +165,12 @@ public class Synchronizer {
             //start sync
 
             progress.log("Synchronizing folder %s to %s", sourceFolder, destName);
-
-            int retries = 5;
-            for (int i = 0; i < retries; i++) {
-                try {
-                    new Synchronizer(progress, service, sourcePath, destName).sync();
-                    return;
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    progress.newline();
-                    progress.log(String.format("!!!!! Retrying (attempt %d of %d) !!!!!", i + 2, retries));
-                    progress.newline();
-                }
-            }
+            new Synchronizer(progress, service, sourcePath, destName).sync();
 
         } catch (IllegalArgumentException e) {
             System.out.println(e.getMessage());
             System.out.println();
-            System.out.println("Usage: java -jar GoogleDriveSync.jar -s <sourcefolder> -t [destinationname] [-d] [-f] [-r] [-o]");
+            System.out.println(String.format("Usage: java %s -s <sourcefolder> -t [destinationname] [-d] [-f] [-r] [-o]", Synchronizer.class.getName()));
             System.out.println();
             System.out.println("     -d    Enable debugging");
             System.out.println("     -f    Enable folder summaries");
@@ -210,7 +199,6 @@ public class Synchronizer {
 
         java.io.File localFolder = new java.io.File(this.localRootFolder);
         syncFolderWithDrive(localFolder, driveFolder);
-        progress.totalSummary();
     }
 
     private void syncFolderWithDrive(java.io.File localFolder, File driveFolder) throws IOException {

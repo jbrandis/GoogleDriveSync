@@ -4,7 +4,7 @@ import com.google.api.services.drive.model.File;
 
 public class Progress {
 
-    private int uploadedFiles;
+    private int createdFiles;
     private int updatedFiles;
     private int uploadedBytes;
     private int deletedFiles;
@@ -15,6 +15,7 @@ public class Progress {
     private boolean transactions = false;
     private boolean folderSummary = false;
     private boolean totalSummary = true;
+    private boolean cancelled = false;
 
     public Progress() {
         startTime = System.currentTimeMillis();
@@ -45,6 +46,31 @@ public class Progress {
         }
     }
 
+    private String formattedTime(long millis) {
+        int hours = 0;
+        int minutes = 0;
+        int seconds = 0;
+        while (millis > 3600000) {
+            hours++;
+            millis -= 3600000;
+        }
+        while (millis > 60000) {
+            minutes++;
+            millis -= 60000;
+        }
+        while (millis > 1000) {
+            seconds++;
+            millis -= 1000;
+        }
+        if (hours > 0) {
+            return String.format("%dh %dm %ds", hours, minutes, seconds);
+        } else if (minutes > 0) {
+            return String.format("%dm %ds", minutes, seconds);
+        } else {
+            return String.format("%ds", seconds);
+        }
+    }
+
     public void createFile(java.io.File localFile, File driveFolder) {
         if (!debug) return;
         System.out.println(String.format(">>> Uploading file %s as %s/%s (%s)",
@@ -53,7 +79,7 @@ public class Progress {
                 localFile.getName(),
                 formattedBytes(localFile.length())
         ));
-        uploadedFiles++;
+        createdFiles++;
         uploadedBytes += localFile.length();
     }
 
@@ -67,7 +93,7 @@ public class Progress {
                 millis / 1000.0,
                 transferSpeed(localFile.length(), millis)
         ));
-        uploadedFiles++;
+        createdFiles++;
         uploadedBytes += localFile.length();
     }
 
@@ -114,10 +140,21 @@ public class Progress {
 
     public void totalSummary() {
         if (!totalSummary) return;
+        long elapsed = System.currentTimeMillis() - startTime;
         System.out.println();
-        System.out.println("*********************************");
-        System.out.println(String.format(""));
-        System.out.println("*********************************");
+        System.out.println("********* SUMMARY *****************");
+        printProperty("Created files", createdFiles);
+        printProperty("Created folders", createdFolders);
+        printProperty("Updated files", updatedFiles);
+        printProperty("Deleted files", deletedFiles);
+        printProperty("Uploaded bytes", formattedBytes(uploadedBytes));
+        printProperty("Time spent", formattedTime(elapsed));
+        printProperty("Average speed", transferSpeed(uploadedBytes, elapsed));
+        System.out.println("***********************************");
+    }
+
+    private void printProperty(String key, Object value) {
+        System.out.println(String.format("%30s: %s", key, value));
     }
 
     public void log(String msg, Object... params) {
@@ -143,5 +180,14 @@ public class Progress {
 
     public void setTotalSummary(boolean totalSummary) {
         this.totalSummary = totalSummary;
+    }
+
+    public boolean isCancelled() {
+        return cancelled;
+    }
+
+    public void cancel() {
+        this.cancelled = true;
+        totalSummary();
     }
 }
