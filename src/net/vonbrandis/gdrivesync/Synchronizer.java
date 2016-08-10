@@ -29,8 +29,6 @@ public class Synchronizer {
     public static final String APPLICATION_NAME = "GoogleDriveSync";
     private static final boolean DRY_RUN = false;
     private static final String PROPERTIES_FILE = ".GoogleDriveSync";
-    private static final String CLIENT_ID = "848763972134-u0pa3p1fkrnou912hvgq7kd4d4o7l9pt.apps.googleusercontent.com";
-    private static final String CLIENT_SECRET = "gzW9orU9A0f88tdwMIcJBkuY";
     private GDrive service;
     private String localRootFolder;
     private String driveRootFolder;
@@ -58,6 +56,8 @@ public class Synchronizer {
 
         String accountID = assertIsSet(props.getProperty("accountID"), "accountID");
         String serverHost = assertIsSet(props.getProperty("serverHost"), "serverHost");
+        String clientID = assertIsSet(props.getProperty("clientID"), "clientID");
+        String clientSecret = assertIsSet(props.getProperty("clientSecret"), "clientSecret");
         int serverPort = Integer.parseInt(assertIsSet(props.getProperty("serverPort"), "serverPort"));
 
         //setup authorization flow
@@ -74,7 +74,7 @@ public class Synchronizer {
 
         //create code flow
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow
-                .Builder(httpTransport, jsonFactory, CLIENT_ID, CLIENT_SECRET, Collections.singletonList(DriveScopes.DRIVE))
+                .Builder(httpTransport, jsonFactory, clientID, clientSecret, Collections.singletonList(DriveScopes.DRIVE))
                 .setAccessType("offline")
                 .setApprovalPrompt("force")
                 .setDataStoreFactory(dataStoreFactory)
