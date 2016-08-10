@@ -48,7 +48,7 @@ public class Synchronizer {
         return str;
     }
 
-    private static Drive setupGoogleDrive(java.io.File dataStoreLocation, Properties props) throws IOException {
+    private static Drive setupGoogleDrive(java.io.File dataStoreLocation, Properties props, boolean interactive) throws IOException {
         HttpTransport httpTransport = new NetHttpTransport();
         JsonFactory jsonFactory = new JacksonFactory();
 
@@ -87,8 +87,16 @@ public class Synchronizer {
                 .setPort(serverPort)
                 .build();
 
-        //run authorization flow
-        Credential credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize(accountID);
+        Credential credential = flow.loadCredential(accountID);
+        if (credential == null || !credential.refreshToken()) {
+            if (!interactive) {
+                System.out.println("Application must be run interactively (using -i) to re-authenticate");
+                System.exit(1);
+            } else {
+                //run authorization flow
+                credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize(accountID);
+            }
+        }
 
         //Create a new authorized API client
         return new Drive.Builder(httpTransport, jsonFactory, credential)
@@ -118,13 +126,17 @@ public class Synchronizer {
 
             String sourcePath = null;
             String destName = null;
+            boolean interactive = false;
 
-            Getopt g = new Getopt("gdrivesync", args, "s:t:dfro");
+            Getopt g = new Getopt("gdrivesync", args, "s:t:dfroi");
             int c;
             while ((c = g.getopt()) != -1) {
                 switch (c) {
                     case 's':
                         sourcePath = g.getOptarg();
+                        break;
+                    case 'i':
+                        interactive = true;
                         break;
                     case 't':
                         destName = g.getOptarg();
@@ -160,7 +172,7 @@ public class Synchronizer {
 
             //setup GDrive service
             Properties props = loadPropertiesFile(propFile);
-            Drive service = setupGoogleDrive(dataStoreLocation, props);
+            Drive service = setupGoogleDrive(dataStoreLocation, props, interactive);
 
             //start sync
 
@@ -170,12 +182,13 @@ public class Synchronizer {
         } catch (IllegalArgumentException e) {
             System.out.println(e.getMessage());
             System.out.println();
-            System.out.println(String.format("Usage: java %s -s <sourcefolder> -t [destinationname] [-d] [-f] [-r] [-o]", Synchronizer.class.getName()));
+            System.out.println(String.format("Usage: java %s -s <sourcefolder> -t [destinationname] [-d] [-f] [-r] [-o] [-i]", Synchronizer.class.getName()));
             System.out.println();
             System.out.println("     -d    Enable debugging");
             System.out.println("     -f    Enable folder summaries");
             System.out.println("     -r    Enable transaction details");
             System.out.println("     -o    Disable total summary");
+            System.out.println("     -i    Set when using interactively, to allow Oauth reauthentication");
             System.exit(1);
         } catch (Exception e) {
             e.printStackTrace();
